@@ -745,7 +745,6 @@ const renderProducts = (productsToShowParam) => {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
               }}
               title="Add to Cart"
-              ref={cartIconRef}
               onClick={(e) => {
                     e.stopPropagation();
                     flyToCart(e, p.images?.[0]?.src);

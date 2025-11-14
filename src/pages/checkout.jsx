@@ -70,7 +70,8 @@ export default function CheckoutPage() {
       state: '',
       postal_code: '',
       country: 'AE',
-      phone_number: '971',
+      phone_prefix: '50',
+      phone_number: '',
     },
     billing: {
       first_name: '',
@@ -83,7 +84,8 @@ export default function CheckoutPage() {
       state: '',
       postal_code: '',
       country: 'AE',
-      phone_number: '971',
+      phone_prefix: '50',
+      phone_number: '',
     },
     billingSameAsShipping: true,
     paymentMethod: 'cod',
@@ -151,6 +153,20 @@ useEffect(() => {
     try {
       const customer = await fetchWithAuth(`customers/${user.id}`);
       if (customer) {
+        // Parse phone number from WooCommerce format (+971501234567)
+        const parsePhone = (phoneStr) => {
+          if (!phoneStr) return { prefix: '50', number: '' };
+          // Remove + and country code (971)
+          const cleaned = phoneStr.replace(/^\+?971/, '');
+          // First 2 digits are prefix, rest is number
+          const prefix = cleaned.slice(0, 2) || '50';
+          const number = cleaned.slice(2, 9) || ''; // Max 7 digits
+          return { prefix, number };
+        };
+
+        const billingPhone = parsePhone(customer.billing.phone);
+        const shippingPhone = customer.shipping.phone ? parsePhone(customer.shipping.phone) : billingPhone;
+
         const fetchedData = {
           billing: {
             first_name: customer.billing.first_name || '',
@@ -163,7 +179,8 @@ useEffect(() => {
             state: customer.billing.state || '',
             postal_code: customer.billing.postcode || '',
             country: customer.billing.country || 'AE',
-            phone_number: customer.billing.phone || '971',
+            phone_prefix: billingPhone.prefix,
+            phone_number: billingPhone.number,
           },
           shipping: {
             first_name: customer.shipping.first_name || '',
@@ -176,7 +193,8 @@ useEffect(() => {
             state: customer.shipping.state || '',
             postal_code: customer.shipping.postcode || '',
             country: customer.shipping.country || 'AE',
-            phone_number: '971',
+            phone_prefix: shippingPhone.prefix,
+            phone_number: shippingPhone.number,
           },
           billingSameAsShipping: true,
           paymentMethod: 'cod',
