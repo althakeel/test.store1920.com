@@ -3,7 +3,6 @@ import Modal from 'react-modal';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 import CustomMap from '../../components/checkoutleft/CustomMap';
-import { auth, RecaptchaVerifier, signInWithPhoneNumber } from '../../utils/firebase';
 
 const LOCAL_STORAGE_KEY = 'checkoutAddressData';
 
@@ -32,11 +31,6 @@ const AddressForm = ({ formData, onChange, onSubmit, onClose, saving, error, car
   const [markerPosition, setMarkerPosition] = useState(null);
   const [mapSelected, setMapSelected] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [otpModalOpen, setOtpModalOpen] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [otpError, setOtpError] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState(null);
 
 
   // --- City/Area Google Places Autocomplete ---
@@ -49,7 +43,12 @@ const AddressForm = ({ formData, onChange, onSubmit, onClose, saving, error, car
     if (!window.google || !window.google.maps || !window.google.maps.places) return;
     setCityLoading(true);
     const service = new window.google.maps.places.AutocompleteService();
-    service.getPlacePredictions({ input, types: ['(regions)'], componentRestrictions: { country: 'ae' } }, (predictions) => {
+    // Changed from ['(regions)'] to ['geocode'] to get ALL locations (cities, areas, neighborhoods, districts, etc.)
+    service.getPlacePredictions({ 
+      input, 
+      types: ['geocode'], 
+      componentRestrictions: { country: 'ae' } 
+    }, (predictions) => {
       setCitySuggestions(predictions ? predictions.map(p => p.description) : []);
       setCityLoading(false);
     });
@@ -148,53 +147,24 @@ const AddressForm = ({ formData, onChange, onSubmit, onClose, saving, error, car
   };
 
   // --------------------------
-  // SAVE ADDRESS (fixed)
   // --------------------------
-
-  // OTP: Send OTP using Firebase
-  const sendOtp = async (fullPhone) => {
-    setOtpError('');
-    try {
-      // Use Firebase RecaptchaVerifier if available
-      if (!window.recaptchaVerifier) {
-        window.recaptchaVerifier = new window.firebase.auth.RecaptchaVerifier('recaptcha-container', {
-          size: 'invisible',
-        });
-      }
-      const appVerifier = window.recaptchaVerifier;
-      const confirmation = await window.firebase.auth().signInWithPhoneNumber(fullPhone, appVerifier);
-      setConfirmationResult(confirmation);
-      setOtpSent(true);
-      setOtpModalOpen(true);
-    } catch (err) {
-      setOtpError('Failed to send OTP. Please try again.');
-    }
-  };
-
-  // OTP: Verify OTP
-  const verifyOtp = async () => {
-    setOtpError('');
-    if (!otp || otp.length < 4) {
-      setOtpError('Please enter the OTP code.');
-      return;
-    }
-    try {
-      await confirmationResult.confirm(otp);
-      setOtpModalOpen(false);
-      onSubmit(formData);
-    } catch (err) {
-      setOtpError('Invalid OTP. Please try again.');
-    }
-  };
+  // SAVE ADDRESS (without OTP)
+  // --------------------------
 
   const saveAddress = async (e) => {
     e.preventDefault();
     if (isSubmitting) return; // Prevent double clicks
     setIsSubmitting(true);
 
-    // Validate phone: must be 7 digits
-    const phone = formData.shipping.phone_number?.trim() || '';
-    if (!phone || phone.length !== 7 || !/^[0-9]{7}$/.test(phone)) {
+    // Validate phone: must be 7 digits (the last part)
+    const phone = (formData.shipping.phone_number || '').toString().trim();
+    const phonePrefix = formData.shipping.phone_prefix || '50';
+    const countryCode = formData.shipping.country_code || '+971';
+    
+    console.log('Phone validation:', { phone, length: phone.length, test: /^[0-9]{7}$/.test(phone) });
+    
+    // Check if phone_number is exactly 7 digits
+    if (!phone || !/^[0-9]{7}$/.test(phone)) {
       alert('Please enter a valid 7-digit phone number before submitting.');
       setFormErrors((prev) => ({ ...prev, phone_number: 'Invalid or incomplete phone number' }));
       setIsSubmitting(false);
@@ -218,16 +188,8 @@ const AddressForm = ({ formData, onChange, onSubmit, onClose, saving, error, car
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(formData));
 
-      const payload = {
-        ...formData,
-        cart: cartItems?.map((item) => ({
-          id: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          subtotal: item.price * item.quantity,
-        })),
-      };
+      // Compose full phone number for backend
+      const fullPhone = `${countryCode}${phonePrefix}${phone}`;
 
       // small delay to ensure phone input updates last digit
       await new Promise((res) => setTimeout(res, 200));
@@ -236,7 +198,10 @@ const AddressForm = ({ formData, onChange, onSubmit, onClose, saving, error, car
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          shipping: formData.shipping,
+          shipping: {
+            ...formData.shipping,
+            phone: fullPhone, // Send complete phone number
+          },
           cart: cartItems.map((item) => ({
             id: item.id,
             name: item.name,
@@ -247,10 +212,10 @@ const AddressForm = ({ formData, onChange, onSubmit, onClose, saving, error, car
         }),
       });
 
-      // Compose full phone number for OTP
-      const fullPhone = `${formData.shipping.country_code || '+971'}${formData.shipping.phone_prefix || '50'}${formData.shipping.phone_number}`;
-      await sendOtp(fullPhone);
+      // Directly submit to checkout (no OTP verification)
+      onSubmit(formData);
     } catch (err) {
+      console.error('Error saving address:', err);
       alert('Something went wrong while saving your address.');
     } finally {
       setIsSubmitting(false);
@@ -529,51 +494,16 @@ const AddressForm = ({ formData, onChange, onSubmit, onClose, saving, error, car
                 </div>
                 {formErrors.phone_number && <span style={{ color: 'red' }}>{formErrors.phone_number}</span>}
               </label>
-      {/* OTP Modal */}
-      <Modal
-        isOpen={otpModalOpen}
-        onRequestClose={() => setOtpModalOpen(false)}
-        style={{
-          overlay: { backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2000 },
-          content: {
-            maxWidth: 400,
-            margin: 'auto',
-            borderRadius: 12,
-            padding: 32,
-            inset: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 18,
-          },
-        }}
-        ariaHideApp={false}
-      >
-        <h3 style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: 8 }}>Verify Mobile Number</h3>
-        <div style={{ fontSize: '1rem', color: '#444', marginBottom: 8 }}>Enter the OTP sent to your mobile</div>
-        <input
-          type="text"
-          value={otp}
-          onChange={e => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-          maxLength={6}
-          style={{ fontSize: '1.2rem', padding: '10px 16px', borderRadius: 8, border: '1px solid #ccc', width: 180, textAlign: 'center', letterSpacing: 4 }}
-          placeholder="Enter OTP"
-        />
-        {otpError && <div style={{ color: 'red', fontSize: '0.97em' }}>{otpError}</div>}
-        <button
-          onClick={verifyOtp}
-          style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 600, fontSize: '1.1rem', cursor: 'pointer', marginTop: 8 }}
-        >
-          Verify
-        </button>
-        <div id="recaptcha-container" />
-      </Modal>
 
               <label style={{ display: 'flex', flexDirection: 'column', fontWeight: 500, color: '#444' }}> 
                 Email*
                 <input type="email" name="email" value={formData.shipping.email} onChange={handleFieldChange} 
                   style={{ marginTop: '6px', padding: '10px', fontSize: '1rem', borderRadius: '6px', border: '1px solid #ccc' }} />
                 {formErrors.email && <span style={{ color: 'red', fontSize: '0.85rem' }}>{formErrors.email}</span>} 
+              </label>
+                <label>
+                Apartment / Floor
+                <input type="text" name="apartment" value={formData.shipping.apartment} onChange={handleFieldChange} />
               </label>
 
               <label>
@@ -582,10 +512,7 @@ const AddressForm = ({ formData, onChange, onSubmit, onClose, saving, error, car
                 {formErrors.street && <span style={{ color: 'red' }}>{formErrors.street}</span>}
               </label>
 
-              <label>
-                Apartment / Floor
-                <input type="text" name="apartment" value={formData.shipping.apartment} onChange={handleFieldChange} />
-              </label>
+            
 
               <label>
                 Province / Emirates*
