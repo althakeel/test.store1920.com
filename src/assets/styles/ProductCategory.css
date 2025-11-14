@@ -16,8 +16,6 @@
   display: flex;
   justify-content: space-between; /* Prices left, button right */
   align-items: center;
-  margin-top: auto; /* Push to bottom of flex container */
-  min-height: 40px; /* Fixed height for consistency */
 }
 
 .prc-left-abc123 {
@@ -484,7 +482,6 @@ img.flying-clone {
   user-select: none;
   overflow: hidden;
   position: relative;
-  min-height: 340px; /* Fixed minimum height */
 }
  
 .pcus-prd-card:hover,
@@ -629,8 +626,6 @@ img.flying-clone {
   flex-direction: column;
   gap: 4px;
   flex-grow: 1;
-  justify-content: space-between; /* Space out content */
-  min-height: 120px; /* Ensure consistent info section height */
 }
 
 /* Product title */
@@ -1010,4 +1005,15 @@ img.flying-clone {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Static Product Card - Different Design */
+.static-product-card {
+  border: 1px solid #ff620750 !important;
+  box-shadow: 0 2px 8px rgba(255, 98, 7, 0.08) !important;
+}
+
+.static-product-card:hover {
+  box-shadow: 0 4px 12px rgba(255, 98, 7, 0.15) !important;
+  border-color: #ff6207 !important;
 }
