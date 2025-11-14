@@ -16,6 +16,8 @@
   display: flex;
   justify-content: space-between; /* Prices left, button right */
   align-items: center;
+  margin-top: auto; /* Push to bottom of flex container */
+  min-height: 40px; /* Fixed height for consistency */
 }
 
 .prc-left-abc123 {
@@ -482,6 +484,7 @@ img.flying-clone {
   user-select: none;
   overflow: hidden;
   position: relative;
+  min-height: 340px; /* Fixed minimum height */
 }
  
 .pcus-prd-card:hover,
@@ -626,6 +629,8 @@ img.flying-clone {
   flex-direction: column;
   gap: 4px;
   flex-grow: 1;
+  justify-content: space-between; /* Space out content */
+  min-height: 120px; /* Ensure consistent info section height */
 }
 
 /* Product title */
@@ -992,5 +997,17 @@ img.flying-clone {
     height: 28px;
     margin: 0;
     flex-shrink: 0;
+  }
+}
+
+/* Smooth fade-in animation for newly loaded products */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

@@ -257,6 +257,7 @@ const ProductCategory = () => {
   const [showingStaticOnly, setShowingStaticOnly] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false); // Track if first batch loaded
   const [isBackgroundLoading, setIsBackgroundLoading] = useState(false); // Track background fetch
+  const [productLoadAnimation, setProductLoadAnimation] = useState({}); // Track which products to animate
   // No need for apiLoaded state anymore
   // For 'Recommended', hasMoreProducts should consider both API and static products
   const getTotalProducts = () => {
@@ -388,8 +389,25 @@ const [categoryHasMore, setCategoryHasMore] = useState(true);
                 currentProducts = [...currentProducts, ...validPageProducts];
                 const limited = currentProducts.slice(0, MAX_PRODUCTS);
                 
-                // Update cache only (don't update state to prevent re-renders)
+                // Update cache and state with animation
                 apiProductCache[categoryId] = limited;
+                setAllProducts([...limited]);
+                
+                // Mark new products for animation
+                validPageProducts.forEach(p => {
+                  setProductLoadAnimation(prev => ({ ...prev, [p.id]: true }));
+                });
+                
+                // Remove animation after it completes
+                setTimeout(() => {
+                  validPageProducts.forEach(p => {
+                    setProductLoadAnimation(prev => {
+                      const next = { ...prev };
+                      delete next[p.id];
+                      return next;
+                    });
+                  });
+                }, 500);
                 
                 if (data.length < PRODUCT_FETCH_LIMIT) break;
                 page++;
@@ -398,7 +416,7 @@ const [categoryHasMore, setCategoryHasMore] = useState(true);
                 if (limited.length >= MAX_PRODUCTS) break;
                 
                 // Small delay between batches for smooth UX
-                await new Promise(resolve => setTimeout(resolve, 50));
+                await new Promise(resolve => setTimeout(resolve, 200));
               }
               
               // Final update after all products loaded
@@ -599,12 +617,18 @@ const renderProducts = (productsToShowParam) => {
           key={p.id}
           className="pcus-prd-card static-product-card"
           onClick={() => handleProductClick(p)}
-          style={{ cursor: "pointer", position: "relative", minHeight: "380px", display: "flex", flexDirection: "column" }}
+          style={{ 
+            cursor: "pointer", 
+            position: "relative",
+            animation: productLoadAnimation[p.id] ? 'fadeInUp 0.5s ease-out' : 'none',
+            opacity: productLoadAnimation[p.id] ? 0 : 1,
+            animationFillMode: 'forwards'
+          }}
           onMouseEnter={handleEnter}
           onMouseLeave={handleLeave}
         >
           <div style={{ position: "absolute", top: "8px", right: "8px", backgroundColor: "#ff6207", color: "#fff", fontSize: "10px", fontWeight: "bold", padding: "2px 6px", borderRadius: "4px", zIndex: 2 }}>Fast Moving</div>
-          <div className="pcus-image-wrapper" style={{ position: "relative", pointerEvents: "none", minHeight: "200px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="pcus-image-wrapper" style={{ position: "relative", pointerEvents: "none" }}>
             <img
               src={imageToShow}
               alt={decodeHTML(p.name)}
@@ -661,11 +685,17 @@ const renderProducts = (productsToShowParam) => {
       <div
         key={p.id}
         className="pcus-prd-card"
-        style={{ cursor: "pointer", position: "relative", minHeight: "380px", display: "flex", flexDirection: "column" }}
+        style={{ 
+          cursor: "pointer", 
+          position: "relative",
+          animation: productLoadAnimation[p.id] ? 'fadeInUp 0.5s ease-out' : 'none',
+          opacity: productLoadAnimation[p.id] ? 0 : 1,
+          animationFillMode: 'forwards'
+        }}
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
       >
-  <div className="pcus-image-wrapper1" onClick={() => handleProductClick(p)} style={{ pointerEvents: "none", minHeight: "200px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+  <div className="pcus-image-wrapper1" onClick={() => handleProductClick(p)} style={{ pointerEvents: "none" }}>
           <img
             src={imageToShow}
             alt={decodeHTML(p.name || p.slug)}
