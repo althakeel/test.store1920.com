@@ -19,7 +19,7 @@ const banners = [
   Banner4,
 ];
 
-const MiniCart = ({ navbarColor }) => {
+const MiniCart = React.forwardRef(({ navbarColor }, ref) => {
   const { cartItems, updateQuantity, removeFromCart, setIsCartOpen, isCartOpen } = useCart();
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [showStars, setShowStars] = useState(false);
@@ -143,6 +143,7 @@ useEffect(() => {
             >
               <div style={{ position: 'relative' }}>
                 <img
+                  ref={ref}
                   src={CartIcon}
                   alt="Cart Icon"
                   style={{
@@ -324,6 +325,6 @@ useEffect(() => {
       />
     </>
   );
-};
+});
 
 export default MiniCart;
